@@ -1,0 +1,34 @@
+# ===================================
+# SECUENCIA DE COLLATZ
+# ===================================
+# Calcula la secuencia de Collatz para n=27
+# Guarda cada valor en memoria
+# x5 = número actual
+# x6 = índice de memoria
+# x7 = contador de pasos
+# ===================================
+
+addi x5, x0, 27
+addi x6, x0, 0
+addi x7, x0, 0
+sw x5, 0(x6)
+addi x6, x6, 4
+addi x7, x7, 1
+addi x28, x0, 1
+beq x5, x28, 52
+addi x29, x0, 1
+and x30, x5, x29
+beq x30, x0, 24
+slli x31, x5, 1
+add x31, x31, x5
+addi x5, x31, 1
+sw x5, 0(x6)
+addi x6, x6, 4
+addi x7, x7, 1
+beq x0, x0, -44
+srli x5, x5, 1
+sw x5, 0(x6)
+addi x6, x6, 4
+addi x7, x7, 1
+beq x0, x0, -56
+beq x0, x0, 0

@@ -1,0 +1,19 @@
+# ===================================
+# MULTIPLICACIÓN POR SUMAS
+# ===================================
+# Calcula: 7 x 6 = 42
+# 
+# x5 = A (multiplicando)
+# x6 = B (multiplicador / contador)
+# x7 = resultado acumulado
+# ===================================
+
+addi x5, x0, 7
+addi x6, x0, 6
+addi x7, x0, 0
+beq x6, x0, 16
+add x7, x7, x5
+addi x6, x6, -1
+beq x0, x0, -12
+sw x7, 0(x0)
+beq x0, x0, 0

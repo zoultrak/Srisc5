@@ -1,0 +1,19 @@
+# ===================================
+# SUMA DE 1 A N (más simple que factorial)
+# ===================================
+# Calcula: 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55
+# 
+# x5 = N (límite)
+# x6 = suma acumulada
+# x7 = contador actual
+# ===================================
+
+addi x5, x0, 10
+addi x6, x0, 0
+addi x7, x0, 1
+blt x5, x7, 20
+add x6, x6, x7
+addi x7, x7, 1
+beq x0, x0, -12
+sw x6, 0(x0)
+beq x0, x0, 0
