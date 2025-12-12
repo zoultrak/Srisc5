@@ -1,5 +1,5 @@
 // ============================================
-// RISC-V Simulador
+// RISC-V Simulator
 // ============================================
 
 class RISCVSimulatorRedesigned {
@@ -370,6 +370,33 @@ class RISCVSimulatorRedesigned {
         // Cerrar modal con Escape
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') this.closeCodeModal();
+        });
+        
+        // Modal para editar valores
+        document.getElementById('closeEditBtn').addEventListener('click', () => this.closeEditModal());
+        document.getElementById('cancelEditBtn').addEventListener('click', () => this.closeEditModal());
+        document.getElementById('saveEditBtn').addEventListener('click', () => this.saveEditedValue());
+        
+        document.getElementById('editValueModal').addEventListener('click', (e) => {
+            if (e.target.id === 'editValueModal') this.closeEditModal();
+        });
+        
+        // Enter para guardar en modal de edición
+        document.getElementById('editValueInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.saveEditedValue();
+            if (e.key === 'Escape') this.closeEditModal();
+        });
+        
+        // Modal de ayuda
+        document.getElementById('helpBtn').addEventListener('click', () => this.openHelpModal());
+        document.getElementById('closeHelpBtn').addEventListener('click', () => this.closeHelpModal());
+        document.getElementById('helpModal').addEventListener('click', (e) => {
+            if (e.target.id === 'helpModal') this.closeHelpModal();
+        });
+        
+        // Tabs de ayuda
+        document.querySelectorAll('.help-tab').forEach(tab => {
+            tab.addEventListener('click', () => this.switchHelpTab(tab.dataset.tab));
         });
         
         document.getElementById('zoomInBtn').addEventListener('click', () => this.zoomIn());
@@ -1001,19 +1028,231 @@ class RISCVSimulatorRedesigned {
     
     loadCode() {
         const code = document.getElementById('codeEditor').value;
-        const lines = code.split('\n').filter(line => line.trim() && !line.trim().startsWith('#'));
+        const result = this.assembleCode(code);
         
-        this.instructions = lines.map((line, index) => {
-            const trimmed = line.trim();
-            return {
-                raw: trimmed,
-                address: index * 4,  // Dirección en bytes
-                parsed: this.parseInstruction(trimmed)
-            };
-        });
+        if (result.errors.length > 0) {
+            result.errors.forEach(err => this.addLog(err, 'error'));
+            return;
+        }
         
+        this.instructions = result.instructions;
         this.reset();
-        this.addLog('Código cargado: ' + this.instructions.length + ' instrucciones', 'success');
+        this.addLog(`Código ensamblado: ${this.instructions.length} instrucciones`, 'success');
+    }
+    
+    // ============================================
+    // ENSAMBLADOR CON ETIQUETAS Y MANEJO DE ERRORES
+    // ============================================
+    
+    assembleCode(code) {
+        const lines = code.split('\n');
+        const errors = [];
+        const labels = {};  // Mapa de etiquetas a direcciones
+        const instructions = [];
+        
+        // Instrucciones válidas
+        const validOps = [
+            'add', 'sub', 'and', 'or', 'xor', 'sll', 'srl', 'sra', 'slt', 'sltu',
+            'addi', 'andi', 'ori', 'xori', 'slti', 'sltiu', 'slli', 'srli', 'srai',
+            'lw', 'lh', 'lb', 'lhu', 'lbu', 'sw', 'sh', 'sb',
+            'beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu',
+            'jal', 'jalr', 'lui', 'auipc', 'nop'
+        ];
+        
+        // Primera pasada: encontrar etiquetas y sus direcciones
+        let currentAddress = 0;
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
+            
+            // Quitar comentarios
+            const commentIdx = line.indexOf('#');
+            if (commentIdx !== -1) {
+                line = line.substring(0, commentIdx).trim();
+            }
+            
+            if (!line) continue;
+            
+            // Detectar etiqueta (termina con :)
+            const labelMatch = line.match(/^(\w+):\s*(.*)$/);
+            if (labelMatch) {
+                const labelName = labelMatch[1].toLowerCase();
+                if (labels[labelName] !== undefined) {
+                    errors.push(`Línea ${i + 1}: Etiqueta duplicada '${labelMatch[1]}'`);
+                } else {
+                    labels[labelName] = currentAddress;
+                }
+                line = labelMatch[2].trim();  // Resto de la línea después de la etiqueta
+            }
+            
+            // Si hay instrucción en la línea, incrementar dirección
+            if (line) {
+                currentAddress += 4;
+            }
+        }
+        
+        // Segunda pasada: ensamblar instrucciones
+        currentAddress = 0;
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
+            const originalLine = line;
+            
+            // Quitar comentarios
+            const commentIdx = line.indexOf('#');
+            if (commentIdx !== -1) {
+                line = line.substring(0, commentIdx).trim();
+            }
+            
+            if (!line) continue;
+            
+            // Quitar etiqueta si existe
+            const labelMatch = line.match(/^(\w+):\s*(.*)$/);
+            if (labelMatch) {
+                line = labelMatch[2].trim();
+            }
+            
+            if (!line) continue;
+            
+            // Convertir registros nombrados
+            line = this.convertNamedRegisters(line);
+            
+            // Parsear instrucción
+            const parts = line.split(/[\s,()]+/).filter(p => p);
+            if (parts.length === 0) continue;
+            
+            const op = parts[0].toLowerCase();
+            
+            // Validar operación
+            if (!validOps.includes(op)) {
+                errors.push(`Línea ${i + 1}: Instrucción desconocida '${parts[0]}'`);
+                continue;
+            }
+            
+            // Procesar argumentos
+            let args = parts.slice(1);
+            let processedArgs = [];
+            
+            // Definir qué tipo de argumentos espera cada instrucción
+            // 'r' = registro, 'i' = inmediato/etiqueta
+            const argTypes = {
+                // Tipo R: rd, rs1, rs2 (todos registros)
+                'add': ['r','r','r'], 'sub': ['r','r','r'], 'and': ['r','r','r'],
+                'or': ['r','r','r'], 'xor': ['r','r','r'], 'sll': ['r','r','r'],
+                'srl': ['r','r','r'], 'sra': ['r','r','r'], 'slt': ['r','r','r'],
+                'sltu': ['r','r','r'],
+                // Tipo I: rd, rs1, imm
+                'addi': ['r','r','i'], 'andi': ['r','r','i'], 'ori': ['r','r','i'],
+                'xori': ['r','r','i'], 'slti': ['r','r','i'], 'sltiu': ['r','r','i'],
+                'slli': ['r','r','i'], 'srli': ['r','r','i'], 'srai': ['r','r','i'],
+                // Load: rd, offset, rs1
+                'lw': ['r','i','r'], 'lh': ['r','i','r'], 'lb': ['r','i','r'],
+                'lhu': ['r','i','r'], 'lbu': ['r','i','r'],
+                // Store: rs2, offset, rs1
+                'sw': ['r','i','r'], 'sh': ['r','i','r'], 'sb': ['r','i','r'],
+                // Branch: rs1, rs2, offset/label
+                'beq': ['r','r','i'], 'bne': ['r','r','i'], 'blt': ['r','r','i'],
+                'bge': ['r','r','i'], 'bltu': ['r','r','i'], 'bgeu': ['r','r','i'],
+                // Jump
+                'jal': ['r','i'], 'jalr': ['r','r','i'],
+                // Upper
+                'lui': ['r','i'], 'auipc': ['r','i'],
+                // Pseudo
+                'nop': []
+            };
+            
+            try {
+                const expectedTypes = argTypes[op] || [];
+                
+                // Validar número de argumentos
+                if (args.length !== expectedTypes.length) {
+                    throw new Error(`'${op}' espera ${expectedTypes.length} argumentos, se encontraron ${args.length}`);
+                }
+                
+                for (let j = 0; j < args.length; j++) {
+                    let arg = args[j];
+                    const expectedType = expectedTypes[j];
+                    
+                    // Es un registro?
+                    const isRegister = arg.toLowerCase().startsWith('x');
+                    // Es una etiqueta?
+                    const isLabel = labels[arg.toLowerCase()] !== undefined;
+                    // Es un número?
+                    const numValue = parseInt(arg);
+                    const isNumber = !isNaN(numValue);
+                    
+                    if (expectedType === 'r') {
+                        // Se espera un registro
+                        if (!isRegister) {
+                            if (isNumber) {
+                                throw new Error(`Argumento ${j+1}: '${op}' espera un registro, no un número. ¿Quisiste usar '${op}i'?`);
+                            } else {
+                                throw new Error(`Argumento ${j+1}: se esperaba un registro (x0-x31), se encontró '${arg}'`);
+                            }
+                        }
+                        const regNum = parseInt(arg.substring(1));
+                        if (isNaN(regNum) || regNum < 0 || regNum > 31) {
+                            throw new Error(`Registro inválido '${arg}' (debe ser x0-x31)`);
+                        }
+                        processedArgs.push(regNum);
+                    } 
+                    else if (expectedType === 'i') {
+                        // Se espera inmediato o etiqueta
+                        if (isRegister) {
+                            throw new Error(`Argumento ${j+1}: se esperaba un inmediato o etiqueta, se encontró registro '${arg}'`);
+                        }
+                        if (isLabel) {
+                            const targetAddr = labels[arg.toLowerCase()];
+                            const offset = targetAddr - currentAddress;
+                            processedArgs.push(offset);
+                        } else if (isNumber) {
+                            processedArgs.push(numValue);
+                        } else {
+                            throw new Error(`Etiqueta no definida '${arg}'`);
+                        }
+                    }
+                }
+                
+                instructions.push({
+                    raw: originalLine.trim(),
+                    address: currentAddress,
+                    lineNumber: i + 1,
+                    parsed: {
+                        opcode: op,
+                        args: processedArgs
+                    }
+                });
+                
+                currentAddress += 4;
+                
+            } catch (e) {
+                errors.push(`Línea ${i + 1}: ${e.message}`);
+            }
+        }
+        
+        return { instructions, errors, labels };
+    }
+    
+    getExpectedArgCount(op) {
+        const argCounts = {
+            // Tipo R: rd, rs1, rs2
+            'add': 3, 'sub': 3, 'and': 3, 'or': 3, 'xor': 3,
+            'sll': 3, 'srl': 3, 'sra': 3, 'slt': 3, 'sltu': 3,
+            // Tipo I: rd, rs1, imm
+            'addi': 3, 'andi': 3, 'ori': 3, 'xori': 3,
+            'slti': 3, 'sltiu': 3, 'slli': 3, 'srli': 3, 'srai': 3,
+            // Load: rd, offset, rs1
+            'lw': 3, 'lh': 3, 'lb': 3, 'lhu': 3, 'lbu': 3,
+            // Store: rs2, offset, rs1
+            'sw': 3, 'sh': 3, 'sb': 3,
+            // Branch: rs1, rs2, offset/label
+            'beq': 3, 'bne': 3, 'blt': 3, 'bge': 3, 'bltu': 3, 'bgeu': 3,
+            // Jump
+            'jal': 2, 'jalr': 3,
+            // Upper
+            'lui': 2, 'auipc': 2,
+            // Pseudo
+            'nop': 0
+        };
+        return argCounts[op] || 0;
     }
     
     parseInstruction(line) {
@@ -1905,9 +2144,9 @@ class RISCVSimulatorRedesigned {
             const value = this.registers[i];
             
             // Clases según estado
-            if (i === 0) {
+            if (value === 0) {
                 div.classList.add('reg-zero');
-            } else if (value !== 0) {
+            } else {
                 div.classList.add('reg-nonzero');
             }
             
@@ -1919,7 +2158,13 @@ class RISCVSimulatorRedesigned {
                 <span class="register-name">x${i}</span>
                 <span class="register-value">${value}</span>
             `;
-            div.title = `${abiNames[i]} (x${i}) = ${value}`;
+            
+            div.title = `${abiNames[i]} (x${i}) = ${value}${i !== 0 ? '\nClic para editar' : '\nx0 siempre es 0'}`;
+            
+            // Permitir edición con clic (excepto x0)
+            if (i !== 0) {
+                div.addEventListener('click', () => this.openEditModal('register', i, abiNames[i]));
+            }
             
             container.appendChild(div);
         }
@@ -1955,10 +2200,108 @@ class RISCVSimulatorRedesigned {
                 <span class="memory-addr">${addr}</span>
                 <span class="memory-value">${value}</span>
             `;
-            div.title = `Dirección ${addr} (índice ${i}) = ${value}`;
+            
+            div.title = `Dirección ${addr} (índice ${i}) = ${value}\nClic para editar`;
+            
+            // Permitir edición con clic
+            div.addEventListener('click', () => this.openEditModal('memory', i, addr));
             
             container.appendChild(div);
         }
+    }
+    
+    // ============================================
+    // MODAL DE EDICIÓN DE VALORES
+    // ============================================
+    
+    openEditModal(type, index, label) {
+        this.editingType = type;
+        this.editingIndex = index;
+        
+        const modal = document.getElementById('editValueModal');
+        const title = document.getElementById('editValueTitle');
+        const labelEl = document.getElementById('editValueLabel');
+        const input = document.getElementById('editValueInput');
+        const info = document.getElementById('editValueInfo');
+        
+        if (type === 'register') {
+            const abiNames = ['zero','ra','sp','gp','tp','t0','t1','t2','s0','s1','a0','a1','a2','a3','a4','a5','a6','a7','s2','s3','s4','s5','s6','s7','s8','s9','s10','s11','t3','t4','t5','t6'];
+            title.textContent = `📝 Editar Registro x${index}`;
+            labelEl.textContent = `x${index} (${abiNames[index]}):`;
+            input.value = this.registers[index];
+            info.innerHTML = `Valor actual: <span>${this.registers[index]}</span><br>Rango: -2,147,483,648 a 2,147,483,647`;
+        } else {
+            const addr = index * 4;
+            title.textContent = `📝 Editar Memoria [${addr}]`;
+            labelEl.textContent = `Dirección ${addr} (índice ${index}):`;
+            input.value = this.memory[index];
+            info.innerHTML = `Valor actual: <span>${this.memory[index]}</span><br>Rango: -2,147,483,648 a 2,147,483,647`;
+        }
+        
+        modal.classList.add('active');
+        input.focus();
+        input.select();
+    }
+    
+    closeEditModal() {
+        const modal = document.getElementById('editValueModal');
+        modal.classList.remove('active');
+        this.editingType = null;
+        this.editingIndex = null;
+    }
+    
+    // ============================================
+    // MODAL DE AYUDA
+    // ============================================
+    
+    openHelpModal() {
+        const modal = document.getElementById('helpModal');
+        modal.classList.add('active');
+    }
+    
+    closeHelpModal() {
+        const modal = document.getElementById('helpModal');
+        modal.classList.remove('active');
+    }
+    
+    switchHelpTab(tabName) {
+        // Actualizar tabs activos
+        document.querySelectorAll('.help-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        });
+        
+        // Actualizar secciones
+        document.querySelectorAll('.help-section').forEach(section => {
+            section.classList.toggle('active', section.dataset.section === tabName);
+        });
+    }
+    
+    saveEditedValue() {
+        const input = document.getElementById('editValueInput');
+        const newValue = parseInt(input.value);
+        
+        if (isNaN(newValue)) {
+            this.addLog('Error: Ingresa un número válido', 'error');
+            return;
+        }
+        
+        // Convertir a 32-bit signed
+        const value32 = newValue | 0;
+        
+        if (this.editingType === 'register') {
+            this.registers[this.editingIndex] = value32;
+            this.lastModifiedRegister = this.editingIndex;
+            this.addLog(`Registro x${this.editingIndex} = ${value32}`, 'success');
+            this.updateRegisterDisplay();
+        } else if (this.editingType === 'memory') {
+            this.memory[this.editingIndex] = value32;
+            this.lastModifiedMemory = this.editingIndex;
+            const addr = this.editingIndex * 4;
+            this.addLog(`Memoria[${addr}] = ${value32}`, 'success');
+            this.updateMemoryDisplay();
+        }
+        
+        this.closeEditModal();
     }
     
     addLog(message, type = '') {
@@ -2000,14 +2343,26 @@ window.addEventListener('DOMContentLoaded', () => {
     simulator = new RISCVSimulatorRedesigned();
     
     const exampleCode = `
-addi x5, x0, 10
-addi x6, x0, 0
-addi x7, x0, 1
-add x6, x6, x7
-addi x7, x7, 1
-bne x7, x5, -8
-sw x6, 0(x0)
-lw x10, 0(x0)`;
+# ===================================
+# MULTIPLICACIÓN CON ETIQUETAS
+# ===================================
+# Calcula: A x B = 7 x 6 = 42
+# Método: sumas repetidas
+# ===================================
+
+inicio: addi x5, x0, 7      # A = 7
+        addi x6, x0, 6      # B = 6 (contador)
+        addi x7, x0, 0      # resultado = 0
+
+mult:   beq x6, x0, guardar # si B == 0, guardar
+        add x7, x7, x5      # resultado += A
+        addi x6, x6, -1     # B--
+        beq x0, x0, mult    # repetir
+
+guardar:
+        sw x7, 0(x0)        # guardar resultado en mem[0]
+        
+halt:   beq x0, x0, halt    # HALT`;
     
     document.getElementById('codeEditor').value = exampleCode;
 });
