@@ -16,12 +16,13 @@
         <header class="header-compact">
             <h1>RISC-V SIMULADOR</h1>
             <div class="header-right">
+                <button class="btn-help" id="helpBtn">❓ Ayuda</button>
                 <div class="status-mini">
                     <div class="status-dot"></div>
                     <span>Activo</span>
                 </div>
                 <button class="theme-btn" id="themeToggle">
-                    <span id="currentTheme">Cyberpunk</span>
+                    <span id="currentTheme">Moderno</span>
                 </button>
                 <span id="currentTime" class="time-display">--:--:--</span>
             </div>
@@ -309,6 +310,196 @@
             <div class="modal-footer">
                 <button class="btn-modal btn-cancel" id="cancelModalBtn">Cancelar</button>
                 <button class="btn-modal btn-save" id="saveModalBtn">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para editar registro/memoria -->
+    <div id="editValueModal" class="modal-overlay">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3 id="editValueTitle">Editar Valor</h3>
+                <button class="modal-close" id="closeEditBtn">&times;</button>
+            </div>
+            <div class="edit-value-body">
+                <label id="editValueLabel">Valor:</label>
+                <input type="number" id="editValueInput" placeholder="Ingresa un valor entero">
+                <div class="edit-value-info" id="editValueInfo"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal btn-cancel" id="cancelEditBtn">Cancelar</button>
+                <button class="btn-modal btn-save" id="saveEditBtn">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Ayuda -->
+    <div id="helpModal" class="modal-overlay">
+        <div class="modal-content modal-help">
+            <div class="modal-header">
+                <h3>📖 Guía de Uso - RISC-V Simulador</h3>
+                <button class="modal-close" id="closeHelpBtn">&times;</button>
+            </div>
+            <div class="help-body">
+                <div class="help-tabs">
+                    <button class="help-tab active" data-tab="inicio">🚀 Inicio</button>
+                    <button class="help-tab" data-tab="instrucciones">📝 Instrucciones</button>
+                    <button class="help-tab" data-tab="etiquetas">🏷️ Etiquetas</button>
+                    <button class="help-tab" data-tab="registros">📊 Registros</button>
+                    <button class="help-tab" data-tab="acerca">ℹ️ Acerca de</button>
+                </div>
+                
+                <div class="help-content" id="helpContent">
+                    <!-- Inicio -->
+                    <div class="help-section active" data-section="inicio">
+                        <h4>Bienvenido al Simulador RISC-V</h4>
+                        <p>Esta herramienta te permite simular la ejecución de programas en ensamblador RISC-V de forma visual e interactiva.</p>
+                        
+                        <h5>⚡ Inicio Rápido</h5>
+                        <ol>
+                            <li><strong>Escribe tu código</strong> en el editor o carga un archivo .txt/.asm</li>
+                            <li><strong>Clic en "Cargar"</strong> para ensamblar el programa</li>
+                            <li><strong>Usa "Paso"</strong> para ejecutar instrucción por instrucción</li>
+                            <li><strong>Usa "Ejecutar"</strong> para correr el programa completo</li>
+                        </ol>
+                        
+                        <h5>🎮 Controles</h5>
+                        <ul>
+                            <li><strong>📁 Abrir:</strong> Cargar archivo .txt, .asm o .s</li>
+                            <li><strong>🗑️ Limpiar:</strong> Borrar el código del editor</li>
+                            <li><strong>👁️ Ver Código:</strong> Editor expandido</li>
+                            <li><strong>📥 Binario:</strong> Exportar código a binario</li>
+                            <li><strong>Zoom:</strong> Rueda del mouse sobre el datapath</li>
+                            <li><strong>Pan:</strong> Clic y arrastrar en el datapath</li>
+                        </ul>
+                        
+                        <h5>✏️ Editar Valores</h5>
+                        <p>Haz <strong>clic en cualquier registro</strong> (excepto x0) o <strong>posición de memoria</strong> para modificar su valor manualmente.</p>
+                    </div>
+                    
+                    <!-- Instrucciones -->
+                    <div class="help-section" data-section="instrucciones">
+                        <h4>Instrucciones Soportadas</h4>
+                        
+                        <h5>Tipo R (registro-registro)</h5>
+                        <code>add, sub, and, or, xor, sll, srl, sra, slt, sltu</code>
+                        <p class="help-example">Ejemplo: <span>add x5, x6, x7</span> → x5 = x6 + x7</p>
+                        
+                        <h5>Tipo I (inmediato)</h5>
+                        <code>addi, andi, ori, xori, slti, sltiu, slli, srli, srai</code>
+                        <p class="help-example">Ejemplo: <span>addi x5, x0, 100</span> → x5 = 100</p>
+                        
+                        <h5>Load/Store</h5>
+                        <code>lw, sw</code>
+                        <p class="help-example">Ejemplo: <span>sw x5, 0(x6)</span> → mem[x6] = x5</p>
+                        <p class="help-example">Ejemplo: <span>lw x5, 4(x0)</span> → x5 = mem[4]</p>
+                        
+                        <h5>Branches</h5>
+                        <code>beq, bne, blt, bge, bltu, bgeu</code>
+                        <p class="help-example">Ejemplo: <span>beq x5, x6, loop</span> → si x5==x6, ir a loop</p>
+                        
+                        <h5>Saltos</h5>
+                        <code>jal, jalr</code>
+                        
+                        <h5>Upper Immediate</h5>
+                        <code>lui, auipc</code>
+                    </div>
+                    
+                    <!-- Etiquetas -->
+                    <div class="help-section" data-section="etiquetas">
+                        <h4>Uso de Etiquetas</h4>
+                        <p>Puedes usar etiquetas para hacer tu código más legible y evitar calcular offsets manualmente.</p>
+                        
+                        <h5>Sintaxis</h5>
+                        <pre>
+etiqueta:   instrucción
+# o
+etiqueta:
+            instrucción</pre>
+                        
+                        <h5>Ejemplo Completo</h5>
+                        <pre>
+# Suma de 1 a 10
+        addi x5, x0, 10     # N = 10
+        addi x6, x0, 0      # suma = 0
+        addi x7, x0, 1      # contador = 1
+
+loop:   blt x5, x7, fin     # si N < contador, fin
+        add x6, x6, x7      # suma += contador
+        addi x7, x7, 1      # contador++
+        beq x0, x0, loop    # volver
+
+fin:    sw x6, 0(x0)        # guardar
+        beq x0, x0, fin     # HALT</pre>
+                        
+                        <h5>Notas</h5>
+                        <ul>
+                            <li>Las etiquetas terminan con <strong>:</strong></li>
+                            <li>Son insensibles a mayúsculas/minúsculas</li>
+                            <li>Usa <code>beq x0, x0, etiqueta</code> para HALT</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Registros -->
+                    <div class="help-section" data-section="registros">
+                        <h4>Banco de Registros RISC-V</h4>
+                        <p>32 registros de 32 bits (x0 - x31)</p>
+                        
+                        <div class="reg-table">
+                            <div class="reg-row"><span>x0 (zero)</span><span>Siempre 0</span></div>
+                            <div class="reg-row"><span>x1 (ra)</span><span>Return address</span></div>
+                            <div class="reg-row"><span>x2 (sp)</span><span>Stack pointer</span></div>
+                            <div class="reg-row"><span>x5-x7 (t0-t2)</span><span>Temporales</span></div>
+                            <div class="reg-row"><span>x8-x9 (s0-s1)</span><span>Saved registers</span></div>
+                            <div class="reg-row"><span>x10-x17 (a0-a7)</span><span>Argumentos</span></div>
+                            <div class="reg-row"><span>x18-x27 (s2-s11)</span><span>Saved registers</span></div>
+                            <div class="reg-row"><span>x28-x31 (t3-t6)</span><span>Temporales</span></div>
+                        </div>
+                        
+                        <h5>Memoria</h5>
+                        <p>32 palabras de 32 bits (direcciones 0-124)</p>
+                        <p>Direccionamiento por bytes: 0, 4, 8, 12...</p>
+                    </div>
+                    
+                    <!-- Acerca de -->
+                    <div class="help-section" data-section="acerca">
+                        <h4>Acerca del Proyecto</h4>
+                        <p>Simulador visual del datapath RISC-V para fines educativos.</p>
+                        
+                        <h5>Características</h5>
+                        <ul>
+                            <li>Visualización animada del flujo de datos</li>
+                            <li>Soporte completo de instrucciones RV32I</li>
+                            <li>Ensamblador con etiquetas</li>
+                            <li>Edición interactiva de registros y memoria</li>
+                            <li>Exportación a código binario</li>
+                            <li>Detección automática de HALT</li>
+                        </ul>
+                        
+                        <h5>🔗 Repositorio</h5>
+                        <a href="https://github.com/zoultrak/simulador-risc5" target="_blank" class="github-link">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                            </svg>
+                            github.com/zoultrak/simulador-risc5
+                        </a>
+                        
+                        <h5>📧 Contacto</h5>
+                        <p>Para reportar bugs o sugerencias, abre un issue en el repositorio de GitHub.</p>
+                        
+                        <div class="version-info">
+                            <p>Versión 1.0.0</p>
+                            <p>© 2025 - Proyecto BAEL
+                                <br>EQUIPO 6: 
+                                <br> BETHEL DINAIRIS LUNA LOPEZ.
+                                <br> ALINE BRISEIDA PEREZ BAUTISTA.
+                                <br> LAURA JOSELYN ALVAREZ GUEVARA.
+                                <br> EMMANUEL CRUZ VICTORIANO.
+
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
