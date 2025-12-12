@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador RISC-V</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="modern">
+    <div class="corner-decor top-left"></div>
+    <div class="corner-decor top-right"></div>
+    <div class="corner-decor bottom-left"></div>
+    <div class="corner-decor bottom-right"></div>
+    
+    <div class="container-full">
+        <header class="header-compact">
+            <h1>RISC-V SIMULADOR</h1>
+            <div class="header-right">
+                <div class="status-mini">
+                    <div class="status-dot"></div>
+                    <span>Activo</span>
+                </div>
+                <button class="theme-btn" id="themeToggle">
+                    <span id="currentTheme">Cyberpunk</span>
+                </button>
+                <span id="currentTime" class="time-display">--:--:--</span>
+            </div>
+        </header>
+        
+        <!-- DATAPATH GRANDE -->
+        <div class="datapath-section">
+            <div class="datapath-header">
+                <span class="datapath-title">Datapath Visual</span>
+                <div class="datapath-info">
+                    <span class="info-pc">PC: <strong id="pcValueTop">0</strong></span>
+                    <span class="info-instr" id="currentInstrTop">Sin instrucción</span>
+                </div>
+                <div class="legend-inline">
+                    <span class="leg-item"><span class="dot dot-r"></span>R</span>
+                    <span class="leg-item"><span class="dot dot-i"></span>I</span>
+                    <span class="leg-item"><span class="dot dot-l"></span>Ld</span>
+                    <span class="leg-item"><span class="dot dot-s"></span>St</span>
+                    <span class="leg-item"><span class="dot dot-b"></span>Br</span>
+                </div>
+            </div>
+            <div class="canvas-container" id="canvasContainer">
+                <svg viewBox="0 0 1400 580" id="datapathSVG" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                        <marker id="arrow" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+                            <path d="M0,0 L0,6 L6,3 z" fill="#546e7a" />
+                        </marker>
+                        <marker id="arrow-active" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+                            <path d="M0,0 L0,6 L6,3 z" fill="#00ff88" />
+                        </marker>
+                    </defs>
+
+                    <g id="datapathGroup">
+                    <!-- MÓDULOS -->
+                    
+                    <!-- MUX PC -->
+                    <g transform="translate(25, 70)">
+                        <polygon id="mod_mux_pc" points="0,0 50,15 50,75 0,90" class="module mod-mux" />
+                        <text x="25" y="50" class="title-mux">MUX</text>
+                        <text x="8" y="28" class="port-in" font-size="9">0</text>
+                        <text x="8" y="72" class="port-in" font-size="9">1</text>
+                    </g>
+
+                    <!-- PC -->
+                    <g transform="translate(105, 80)">
+                        <rect id="mod_pc" width="70" height="70" class="module" rx="5"/>
+                        <text x="35" y="42" class="title" font-size="16">PC</text>
+                    </g>
+
+                    <!-- Sumador +4 -->
+                    <g transform="translate(205, 90)">
+                        <circle cx="25" cy="25" r="25" class="module" id="mod_adder_pc"/>
+                        <text x="25" y="32" class="title" text-anchor="middle" font-size="14">+4</text>
+                    </g>
+
+                    <!-- MEMORIA INSTRUCCIONES -->
+                    <g transform="translate(280, 40)">
+                        <rect id="mod_mem_instr" width="150" height="150" class="module" rx="5"/>
+                        <text x="75" y="28" class="title" font-size="13">MEMORIA</text>
+                        <text x="75" y="48" class="title" font-size="13">INSTR</text>
+                        <text x="10" y="85" class="port-in" font-size="9">addr</text>
+                        <text x="140" y="70" class="port-out" font-size="8">op</text>
+                        <text x="140" y="92" class="port-out" font-size="8">rs1</text>
+                        <text x="140" y="114" class="port-out" font-size="8">rs2</text>
+                        <text x="140" y="136" class="port-out" font-size="8">rd,imm</text>
+                    </g>
+
+                    <!-- BANCO REGISTROS -->
+                    <g transform="translate(490, 40)">
+                        <rect id="mod_banco_reg" width="150" height="180" class="module" rx="5"/>
+                        <text x="75" y="25" class="title" font-size="13">BANCO</text>
+                        <text x="75" y="45" class="title" font-size="13">REGISTROS</text>
+                        <text x="10" y="75" class="port-in" font-size="8">rs1</text>
+                        <text x="10" y="100" class="port-in" font-size="8">rs2</text>
+                        <text x="10" y="135" class="port-in" font-size="8">rd</text>
+                        <text x="10" y="160" class="port-in" font-size="8">wd</text>
+                        <text x="10" y="176" class="port-in" font-size="8">we</text>
+                        <text x="140" y="85" class="port-out" font-size="8">d1</text>
+                        <text x="140" y="120" class="port-out" font-size="8">d2</text>
+                    </g>
+
+                    <!-- Sign Extend -->
+                    <g transform="translate(490, 255)">
+                        <rect id="mod_imm_gen" width="110" height="45" class="module" rx="4"/>
+                        <text x="55" y="28" class="title" font-size="11">SIGN EXT</text>
+                    </g>
+
+                    <!-- MUX ALU -->
+                    <g transform="translate(710, 90)">
+                        <polygon id="mod_mux_alu" points="0,0 45,15 45,75 0,90" class="module mod-mux" />
+                        <text x="22" y="50" class="title-mux" font-size="10">MUX</text>
+                        <text x="8" y="28" class="port-in" font-size="8">0</text>
+                        <text x="8" y="72" class="port-in" font-size="8">1</text>
+                    </g>
+
+                    <!-- ALU -->
+                    <g transform="translate(790, 65)">
+                        <polygon id="mod_alu" points="0,30 0,120 70,95 70,55" class="module" />
+                        <text x="35" y="80" class="title" font-size="15">ALU</text>
+                    </g>
+
+                    <!-- Zero Detector -->
+                    <g transform="translate(890, 90)">
+                        <rect id="mod_uno_solo" width="55" height="35" class="module mod-logic" rx="3"/>
+                        <text x="27" y="22" class="title-logic" font-size="9">ZERO</text>
+                    </g>
+
+                    <!-- MEMORIA DATOS -->
+                    <g transform="translate(1000, 40)">
+                        <rect id="mod_mem_data" width="140" height="150" class="module" rx="5"/>
+                        <text x="70" y="25" class="title" font-size="13">MEMORIA</text>
+                        <text x="70" y="45" class="title" font-size="13">DATOS</text>
+                        <text x="10" y="80" class="port-in" font-size="8">addr</text>
+                        <text x="10" y="110" class="port-in" font-size="8">wd</text>
+                        <text x="10" y="140" class="port-in" font-size="8">we</text>
+                        <text x="130" y="95" class="port-out" font-size="8">rd</text>
+                    </g>
+
+                    <!-- MUX Write Back -->
+                    <g transform="translate(1190, 65)">
+                        <polygon id="mod_mux_wb" points="0,0 45,15 45,75 0,90" class="module mod-mux" />
+                        <text x="22" y="50" class="title-mux" font-size="10">MUX</text>
+                        <text x="8" y="28" class="port-in" font-size="8">alu</text>
+                        <text x="8" y="72" class="port-in" font-size="8">mem</text>
+                    </g>
+
+                    <!-- BRANCH -->
+                    <g transform="translate(205, 355)">
+                        <circle cx="25" cy="25" r="25" class="module" id="mod_adder_branch"/>
+                        <text x="25" y="32" class="title" text-anchor="middle" font-size="14">+</text>
+                    </g>
+
+                    <g transform="translate(280, 340)">
+                        <rect id="mod_ordenamiento" width="100" height="45" class="module mod-logic" rx="3"/>
+                        <text x="50" y="20" class="title-logic" font-size="10">BRANCH</text>
+                        <text x="50" y="36" class="title-logic" font-size="10">OFFSET</text>
+                    </g>
+
+                    <g transform="translate(940, 335)">
+                        <path id="mod_and_gate" d="M0,0 L25,0 Q50,0 50,25 Q50,50 25,50 L0,50 Z" class="module mod-logic" />
+                        <text x="25" y="32" class="title-logic" text-anchor="middle">&amp;</text>
+                    </g>
+
+                    <g transform="translate(25, 340)">
+                        <polygon id="mod_mux_br" points="0,0 45,12 45,58 0,70" class="module mod-mux" />
+                        <text x="22" y="40" class="title-mux" font-size="9">MUX</text>
+                    </g>
+
+                    <!-- CONTROL UNIT -->
+                    <g transform="translate(280, 440)">
+                        <rect id="mod_alu_ctrl" width="750" height="65" class="module mod-control" rx="6" />
+                        <text x="375" y="25" class="title-control" font-size="14">UNIDAD DE CONTROL</text>
+                        <text x="40" y="48" class="port-in-ctrl" font-size="9">opcode</text>
+                        <text x="180" y="55" class="port-out-ctrl" font-size="8">RegWr</text>
+                        <text x="300" y="55" class="port-out-ctrl" font-size="8">ALUSrc</text>
+                        <text x="420" y="55" class="port-out-ctrl" font-size="8">ALUOp</text>
+                        <text x="540" y="55" class="port-out-ctrl" font-size="8">MemWr</text>
+                        <text x="660" y="55" class="port-out-ctrl" font-size="8">Branch</text>
+                    </g>
+
+                    <!-- CABLES -->
+                    <polyline id="wire_mux_to_pc" points="75,115 90,115 90,115 105,115" class="wire wire-bus"/>
+                    <polyline id="wire_pc_out" points="175,115 190,115" class="wire wire-bus"/>
+                    <polyline id="wire_pc_to_adder" points="190,115 205,115" class="wire wire-bus"/>
+                    <polyline id="wire_pc_to_instr" points="190,115 190,25 265,25 265,125 280,125" class="wire wire-bus"/>
+                    <polyline id="wire_pc_plus_4" points="255,115 270,115 270,10 10,10 10,85 25,85" class="wire wire-bus"/>
+
+                    <polyline id="wire_opcode" points="430,110 450,110 450,420 320,420 320,440" class="wire wire-ctrl"/>
+                    <polyline id="wire_rs1" points="430,132 465,132 465,115 490,115" class="wire wire-bus"/>
+                    <polyline id="wire_rs2" points="430,154 460,154 460,140 490,140" class="wire wire-bus"/>
+                    <polyline id="wire_rd" points="430,176 470,176 470,175 490,175" class="wire wire-bus"/>
+                    <polyline id="wire_imm_i" points="430,176 445,176 445,235 475,235 475,277 490,277" class="wire wire-bus"/>
+
+                    <polyline id="wire_ext_out" points="600,277 670,277 670,240 695,240 695,165 710,165" class="wire wire-bus"/>
+                    <polyline id="wire_mux_to_ext" points="600,277 670,277" class="wire wire-bus" style="opacity:0"/>
+                    <polyline id="wire_imm_s" points="445,235 475,235 475,277 490,277" class="wire wire-bus" style="opacity:0"/>
+
+                    <polyline id="wire_reg_do1" points="640,125 680,125 680,105 790,105" class="wire wire-bus"/>
+                    <polyline id="wire_reg_do2" points="640,160 660,160" class="wire wire-bus"/>
+                    <polyline id="wire_do2_to_alu_mux" points="660,160 660,105 710,105" class="wire wire-bus"/>
+                    <polyline id="wire_do2_to_mem" points="660,160 660,315 980,315 980,150 1000,150" class="wire wire-bus"/>
+
+                    <polyline id="wire_alu_mux_out" points="755,135 775,135 775,130 790,130" class="wire wire-bus"/>
+                    <polyline id="wire_alu_result" points="860,120 875,120" class="wire wire-bus"/>
+                    <polyline id="wire_alu_to_zero" points="875,120 875,107 890,107" class="wire"/>
+                    <polyline id="wire_alu_to_mem_addr" points="875,120 875,25 985,25 985,120 1000,120" class="wire wire-bus"/>
+                    <polyline id="wire_alu_to_wb" points="875,120 875,15 1175,15 1175,80 1190,80" class="wire wire-bus"/>
+
+                    <polyline id="wire_mem_read" points="1140,135 1165,135 1165,140 1190,140" class="wire wire-bus"/>
+                    <polyline id="wire_wb_data" points="1235,110 1260,110 1260,0 475,0 475,200 490,200" class="wire wire-bus"/>
+
+                    <polyline id="wire_pc4_to_branch" points="190,115 190,380 205,380" class="wire wire-bus"/>
+                    <polyline id="wire_ord_out" points="445,235 445,325 330,325 330,340" class="wire wire-bus"/>
+                    <polyline id="wire_branch_offset" points="380,362 400,362 400,410 190,410 190,380 205,380" class="wire wire-bus"/>
+                    <polyline id="wire_branch_target" points="255,380 270,380 270,425 5,425 5,375 25,375" class="wire wire-bus"/>
+                    <polyline id="wire_zero_flag" points="945,107 955,107 955,320 960,320 960,335" class="wire"/>
+                    <polyline id="wire_ctrl_branch" points="940,440 940,425 980,425 980,385 975,385" class="wire wire-ctrl"/>
+                    <polyline id="wire_and_out" points="990,360 1010,360 1010,435 0,435 0,375 25,362" class="wire wire-ctrl"/>
+                    <polyline id="wire_pc_src" points="70,375 90,375 90,325 0,325 0,145 25,145" class="wire wire-bus"/>
+
+                    <polyline id="wire_ctrl_alu_op" points="700,440 700,425 775,425 775,135 790,135" class="wire wire-ctrl"/>
+                    <polyline id="wire_ctrl_reg_we" points="460,440 460,425 480,425 480,215 490,215" class="wire wire-ctrl"/>
+                    <polyline id="wire_ctrl_alu_src" points="580,440 580,425 700,425 700,180 732,180" class="wire wire-ctrl"/>
+                    <polyline id="wire_ctrl_mem_we" points="820,440 820,420 975,420 975,320 990,320 990,180 1000,180" class="wire wire-ctrl"/>
+                    <polyline id="wire_ctrl_mem_rd" points="870,440 870,415 1170,415 1170,155 1212,155" class="wire wire-ctrl"/>
+                    <polyline id="wire_ctrl_imm_src" points="520,440 520,310 545,310" class="wire wire-ctrl" style="opacity:0"/>
+                    </g>
+                </svg>
+                
+                <div class="zoom-controls">
+                    <button class="zoom-btn" id="zoomInBtn">+</button>
+                    <span class="zoom-level" id="zoomLevel">100%</span>
+                    <button class="zoom-btn" id="zoomOutBtn">−</button>
+                    <button class="zoom-btn" id="zoomResetBtn">⟲</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- PANELES INFERIORES -->
+        <div class="bottom-panels">
+            <div class="panel panel-code">
+                <div class="panel-title-sm">Editor de Código</div>
+                <div class="file-row">
+                    <input type="file" id="fileInput" accept=".asm,.s,.txt" hidden>
+                    <button class="btn-sm btn-file" id="fileBtn">📁 Abrir</button>
+                    <span class="file-name" id="fileName">Arrastra .asm aquí</span>
+                </div>
+                <textarea id="codeEditor" placeholder="# Código RISC-V"></textarea>
+                <div class="controls-row">
+                    <button class="btn-sm" id="loadBtn">Cargar</button>
+                    <button class="btn-sm" id="stepBtn">Paso</button>
+                    <button class="btn-sm" id="runBtn">Ejecutar</button>
+                    <button class="btn-sm btn-reset" id="resetBtn">Reset</button>
+                </div>
+                <div class="controls-row">
+                    <button class="btn-sm btn-clear" id="clearCodeBtn">🗑️ Limpiar</button>
+                    <button class="btn-sm btn-view" id="viewCodeBtn">👁️ Ver Código</button>
+                    <button class="btn-sm btn-export" id="exportBinBtn">📥 Binario</button>
+                </div>
+                <div class="speed-row">
+                    <span>Vel: <strong id="speedValue">2.0</strong>s</span>
+                    <input type="range" id="speedSlider" min="500" max="5000" value="2000">
+                </div>
+            </div>
+            
+            <!-- PC + LOG combinados -->
+            <div class="panel panel-pc-log">
+                <div class="pc-section">
+                    <div class="pc-row">
+                        <span class="pc-label">PC</span>
+                        <span class="pc-val" id="pcValue">0</span>
+                    </div>
+                    <div class="instr-display" id="currentInstruction">Sin instrucción</div>
+                </div>
+                <div class="log-section">
+                    <div class="panel-title-sm">Log</div>
+                    <div class="execution-log" id="executionLog"></div>
+                </div>
+            </div>
+            
+            <!-- REGISTROS - Vista completa -->
+            <div class="panel panel-regs">
+                <div class="panel-title-sm">Registros (x0 - x31)</div>
+                <div class="register-grid" id="registerList"></div>
+            </div>
+            
+            <!-- MEMORIA - Vista completa -->
+            <div class="panel panel-mem">
+                <div class="panel-title-sm">Memoria de Datos</div>
+                <div class="memory-grid" id="memoryList"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="wireTooltip" class="tooltip"></div>
+    
+    <!-- Modal para ver/editar código -->
+    <div id="codeModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📝 Editor de Código RISC-V</h3>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            <textarea id="codeEditorFull" placeholder="# Escribe tu código RISC-V aquí..."></textarea>
+            <div class="modal-footer">
+                <button class="btn-modal btn-cancel" id="cancelModalBtn">Cancelar</button>
+                <button class="btn-modal btn-save" id="saveModalBtn">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="simulador.js"></script>
+</body>
+</html>
